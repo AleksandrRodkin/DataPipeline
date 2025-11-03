@@ -1,4 +1,7 @@
 /.venv/**
 /.idea/**
-/dev/**
+/dev
 /node_modules/**
+.env
+/airflow/config/airflow.cfg
+/airflow/logs/**

@@ -24,9 +24,10 @@ repos:
     rev: 7.3.0
     hooks:
       - id: flake8
+        exclude: ^data/DataGenerator\.py$
 
   - repo: https://github.com/tconbeer/sqlfmt
     rev: v0.28.2
     hooks:
       - id: sqlfmt
-        files: ^(models|analyses|tests)/.*.sql$
+        files: '\.(sql)$'

@@ -5,4 +5,4 @@
 .env
 /airflow/config/airflow.cfg
 /airflow/logs/**
-/data/output/
+/data/output/**

@@ -8,7 +8,7 @@ FROM '/data/sessions.csv'
 DELIMITER ','
 CSV HEADER;
 
-COPY orders.restaurants (id, name, city, cusine_type, rating, work_start_time, work_end_time, is_24h)
+COPY orders.restaurants (id, name, city, cuisine_type, rating, work_start_time, work_end_time, is_24h)
 FROM '/data/restaurants.csv'
 DELIMITER ','
 CSV HEADER;
@@ -18,12 +18,12 @@ FROM '/data/couriers.csv'
 DELIMITER ','
 CSV HEADER;
 
-COPY orders.orders (id, created_at, accepted_at, delivered_at, user_id, restaurant_id, courier_id, status, platform, total_amount, payment_method, promo_id)
-FROM '/data/orders.csv'
+COPY marketing.promos (id, code, discount_pct, start_dt, end_dt)
+FROM '/data/promos.csv'
 DELIMITER ','
 CSV HEADER;
 
-COPY marketing.promos (id, code, discount_pct, start_dt, end_dt)
-FROM '/data/promos.csv'
+COPY orders.orders (id, created_at, accepted_at, delivered_at, user_id, restaurant_id, courier_id, status, platform, total_amount, payment_method, promo_id)
+FROM '/data/orders.csv'
 DELIMITER ','
 CSV HEADER;

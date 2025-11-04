@@ -32,11 +32,10 @@ x-airflow-common: &airflow-common
     - .env
   environment: &airflow-common-env
     LANG: en_US.UTF-8
-    LC_ALL: en_US.UTF-8
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-db/${AIRFLOW_DB}
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-db/${AIRFLOW_DB}
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
@@ -60,26 +59,49 @@ x-airflow-common: &airflow-common
   depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
-    postgres:
+    airflow-db:
       condition: service_healthy
   networks:
     - all_in_one
 
 services:
-  postgres:
-    image: postgres:16
+  source-db:
+    build:
+      context: .
+      dockerfile: data/databases/source_db/Dockerfile
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${SOURCE_DB_USER}
+      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD}
+      POSTGRES_DB: ${SOURCE_DB}
     env_file:
       - .env
     ports:
-      - "5432:5432"
+      - "5444:5432"
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - source-db-volume:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      test: ["CMD", "pg_isready", "-U", "${SOURCE_DB_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    networks:
+      - all_in_one
+
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${AIRFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_DB}
+    env_file:
+      - .env
+    ports:
+      - "5442:5432"
+    volumes:
+      - airflow-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${AIRFLOW_DB_USER}"]
       interval: 10s
       retries: 5
       start_period: 5s
@@ -329,7 +351,8 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  postgres-db-volume:
+  source-db-volume:
+  airflow-db-volume:
 networks:
   all_in_one:
     driver: bridge

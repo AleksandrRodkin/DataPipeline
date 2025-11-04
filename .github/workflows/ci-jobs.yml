@@ -1,0 +1,45 @@
+name: pre-commit
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.13
+
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          . venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Run pre-commit hooks
+      - name: Run pre-commit on all changed files
+        run: |
+          . venv/bin/activate
+          files=$(git diff --name-only origin/main)
+          if [ -n "$files" ]; then
+            pre-commit run --files $files
+          else
+            echo "No modified files to check."
+          fi

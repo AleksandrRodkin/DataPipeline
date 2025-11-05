@@ -6,3 +6,4 @@
 /airflow/config/airflow.cfg
 /airflow/logs/**
 /data/output/**
+/minio_storage/**

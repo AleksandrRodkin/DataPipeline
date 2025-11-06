@@ -26,8 +26,9 @@ x-airflow-common: &airflow-common
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: apache/airflow:3.1.1
-  # build: .
+  build:
+    context: .
+    dockerfile: /airflow/Dockerfile
   env_file:
     - .env
   environment: &airflow-common-env
@@ -393,6 +394,25 @@ services:
         condition: service_healthy
     networks:
       - all_in_one
+
+  jupyter:
+    build:
+      context: .
+      dockerfile: jupyter/Dockerfile
+    ports:
+      - "10000:8888"
+      - "4041:4041"
+    volumes:
+      - ./jupyter/dev:/app
+    restart: always
+    entrypoint: >
+      /bin/sh -c "
+      jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=${NOTEBOOK_TOKEN}
+      "
+    networks:
+      - all_in_one
+    profiles:
+      - dev
 
 volumes:
   source-db-volume:

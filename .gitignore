@@ -7,3 +7,4 @@
 /airflow/logs/**
 /data/output/**
 /minio_storage/**
+/jupyter/dev/**

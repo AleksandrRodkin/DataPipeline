@@ -28,7 +28,7 @@ x-airflow-common: &airflow-common
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   build:
     context: .
-    dockerfile: /airflow/Dockerfile
+    dockerfile: airflow/Dockerfile
   env_file:
     - .env
   environment: &airflow-common-env
@@ -56,11 +56,14 @@ x-airflow-common: &airflow-common
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/config:/opt/airflow/config
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/scripts:/opt/airflow/scripts
   user: "${AIRFLOW_UID}:${AIRFLOW_GID}"
   depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
     airflow-db:
+      condition: service_healthy
+    minio:
       condition: service_healthy
   networks:
     - all_in_one
@@ -304,6 +307,22 @@ services:
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
 
+        if ! /entrypoint airflow connections get 'spark_default' >/dev/null 2>&1; then
+            /entrypoint airflow connections add 'spark_default' \
+                --conn-type 'spark' \
+                --conn-host 'local' \
+                --conn-extra '{"spark-binary": "spark-submit", "deploy-mode": "client"}'
+        fi
+
+        if [ ! -f /opt/airflow/scripts/.init_download ]; then
+          echo "Download past data to MinIO..."
+          chmod +x /opt/airflow/scripts/init_download.sh
+          /opt/airflow/scripts/init_download.sh
+          touch /opt/airflow/scripts/.init_download
+        else
+          echo "Skipping loading of previous data"
+        fi
+
     # yamllint enable rule:line-length
     environment:
       <<: *airflow-common-env
@@ -352,7 +371,7 @@ services:
         condition: service_completed_successfully
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: minio
     restart: always
     ports:
@@ -395,28 +414,149 @@ services:
     networks:
       - all_in_one
 
-  jupyter:
+  jupyter-spark:
     build:
       context: .
-      dockerfile: jupyter/Dockerfile
+      dockerfile: jupyter-spark/Dockerfile
     ports:
-      - "10000:8888"
+      - "16000:8888"
       - "4041:4041"
     volumes:
-      - ./jupyter/dev:/app
+      - ./jupyter-spark/dev:/app
     restart: always
     entrypoint: >
       /bin/sh -c "
-      jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=${NOTEBOOK_TOKEN}
+      jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=${NOTEBOOK_TOKEN}
       "
     networks:
       - all_in_one
     profiles:
       - dev
 
+  iceberg-db:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${ICEBERG_USER}
+      POSTGRES_PASSWORD: ${ICEBERG_PASSWORD}
+      POSTGRES_DB: ${ICEBERG_DB}
+    ports:
+      - "9432:5432"
+    volumes:
+      - iceberg-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD", "pg_isready", "-U", "${ICEBERG_USER}", "-d", "${ICEBERG_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    networks:
+      - all_in_one
+
+  rest:
+    image: tabulario/iceberg-rest:1.6.0
+    ports:
+      - "8181:8181"
+    env_file:
+      - .env
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: eu-central-1
+      CATALOG_WAREHOUSE: s3://${MINIO_PROD_BUCKET_NAME}/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: true
+      CATALOG_URI: jdbc:postgresql://iceberg-db:5432/${ICEBERG_DB}?user=${ICEBERG_USER}&password=${ICEBERG_PASSWORD}
+      CATALOG_JDBC_DRIVER: org.postgresql.Driver
+      CATALOG_JDBC_USER: ${ICEBERG_USER}
+      CATALOG_JDBC_PASSWORD: ${ICEBERG_PASSWORD}
+    depends_on:
+      iceberg-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: always
+    networks:
+      - all_in_one
+
+  trino:
+    container_name: trino
+    image: trinodb/trino:478
+    env_file:
+      - .env
+    environment:
+      TRINO_USER: ${TRINO_USER}
+      TRINO_PASSWORD: ${TRINO_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: eu-central-1
+      S3_USE_PATH_STYLE_ACCESS: true
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_S3_DISABLE_SSL: true
+      REST_CATALOG_WAREHOUSE: s3://${MINIO_PROD_BUCKET_NAME}/
+      SOURCE_DB_USER: ${SOURCE_DB_USER}
+      SOURCE_DB_PASSWORD: ${SOURCE_DB_PASSWORD}
+      CONNECTION_URL: jdbc:postgresql://source-db:5432/${SOURCE_DB}
+      JAVA_TOOL_OPTIONS: "-Dtrino.authentication.type=BASIC -Dtrino.password-file.path=/etc/trino/password.db"
+    volumes:
+      - ./trino-config:/etc/trino
+    ports:
+      - "8086:8080"
+    depends_on:
+      minio:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    networks:
+      - all_in_one
+
+  #  dbt:
+  #    container_name: dbt
+  #    build:
+  #      context: .
+  #      dockerfile: dbt/Dockerfile
+  #    depends_on:
+  #      trino:
+  #        condition: service_healthy
+  #      minio:
+  #        condition: service_healthy
+  #    volumes:
+  #      - ./dbt:/usr/app/dbt
+  #    working_dir: /usr/app/dbt/dbt_pipeline
+  #    command: ["tail", "-f", "/dev/null"]
+  #    restart: always
+  #    environment:
+  #      TRINO_USER: ${TRINO_USER}
+  #      TRINO_PASSWORD: ${TRINO_PASSWORD}
+  #      TRINO_HOST: trino
+  #      TRINO_PORT: 8080
+  #    healthcheck:
+  #      test:
+  #        [
+  #          "CMD-SHELL",
+  #          "dbt debug --profiles-dir /usr/app/dbt/dbt_pipeline/profiles",
+  #        ]
+  #      interval: 10s
+  #      timeout: 5s
+  #      retries: 5
+  #      start_period: 10s
+  #    networks:
+  #      - all_in_one
+
 volumes:
   source-db-volume:
   airflow-db-volume:
+  iceberg-db-volume:
 networks:
   all_in_one:
     driver: bridge

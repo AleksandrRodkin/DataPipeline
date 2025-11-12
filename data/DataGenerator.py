@@ -36,7 +36,7 @@ from faker import Faker
 import pandas as pd
 
 RANDOM_SEED = 42
-START_DATE = "2023-01-01"
+START_DATE = "2025-01-01"
 END_DATE = "2026-12-31"
 
 RESTAURANTS_NUMBER = 100
@@ -91,6 +91,7 @@ class Restaurant:
     work_start_time: time
     work_end_time: time
     is_24h: bool
+    modified_at: datetime
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -102,6 +103,7 @@ class Restaurant:
             "work_start_time": self.work_start_time.strftime("%H:%M"),
             "work_end_time": self.work_end_time.strftime("%H:%M"),
             "is_24h": int(self.is_24h),
+            "modified_at": self.modified_at.isoformat(),
         }
 
 
@@ -134,6 +136,7 @@ class Courier:
     city: str
     transport: str
     rating: float
+    modified_at: datetime
 
     def to_dict(self):
         return {
@@ -142,6 +145,7 @@ class Courier:
             "city": self.city,
             "transport": self.transport,
             "rating": round(self.rating, 2),
+            "modified_at": self.modified_at.isoformat(),
         }
 
 
@@ -312,6 +316,7 @@ def generate_restaurant(t: datetime) -> Restaurant:
     cuisine = random.choice(CUISINES)
     rating = random.uniform(3.5, 4.9)
     is_24h = random.random() < 0.2
+    modified_at = datetime(2025, 1, 1, 3)
     if is_24h:
         start = time(0, 0)
         end = time(23, 59)
@@ -321,7 +326,7 @@ def generate_restaurant(t: datetime) -> Restaurant:
         end_h = random.randint(20, 23)
         start = time(start_h, 0)
         end = time(end_h, 0)
-    return Restaurant(rid, name, city, cuisine, rating, start, end, is_24h)
+    return Restaurant(rid, name, city, cuisine, rating, start, end, is_24h, modified_at)
 
 
 def generate_user(t: datetime) -> User:
@@ -346,7 +351,8 @@ def generate_courier(t: datetime) -> Courier:
     city = faker.city()
     transport = random.choice(TRANSPORTS)
     rating = random.uniform(3.0, 5.0)
-    return Courier(cid, name, city, transport, rating)
+    modified_at = datetime(2025, 1, 1, 3)
+    return Courier(cid, name, city, transport, rating, modified_at)
 
 
 def generate_promo(t: datetime) -> Promocode:

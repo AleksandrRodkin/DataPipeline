@@ -1,5 +1,6 @@
 /.venv/**
 /.idea/**
+**/__pycache__/
 /dev
 /node_modules/**
 .env
@@ -7,4 +8,14 @@
 /airflow/logs/**
 /data/output/**
 /minio_storage/**
-/jupyter/dev/**
+/jupyter-spark/dev/**
+/airflow/scripts/.init_download
+/clickhouse/*
+!/clickhouse/init
+/dbt/logs/**
+/dbt/target/**
+/dbt/dbt_packages/**
+/dbt/dbt_pipeline/logs/**
+/dbt/dbt_pipeline/profiles/.user.yml
+/trino-config/catalog/source.properties
+/trino-config/catalog/iceberg.properties

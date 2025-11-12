@@ -1,5 +1,6 @@
 /.venv/**
 /.idea/**
+**/__pycache__/
 /dev
 /node_modules/**
 .env
@@ -8,3 +9,4 @@
 /data/output/**
 /minio_storage/**
 /jupyter/dev/**
+/airflow/scripts/.init_download

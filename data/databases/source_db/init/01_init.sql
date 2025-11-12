@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS orders.restaurants (
     rating FLOAT CHECK (rating >= 0 AND rating <= 5),
     work_start_time TIME,
     work_end_time TIME,
-    is_24h BOOLEAN DEFAULT FALSE
+    is_24h BOOLEAN DEFAULT FALSE,
+    modified_at TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS orders.couriers (
@@ -46,7 +47,8 @@ CREATE TABLE IF NOT EXISTS orders.couriers (
     name VARCHAR(100),
     city VARCHAR(100),
     transport VARCHAR(10) CHECK (transport IN ('bike', 'car', 'walk')),
-    rating FLOAT CHECK (rating >= 0 AND rating <= 5)
+    rating FLOAT CHECK (rating >= 0 AND rating <= 5),
+    modified_at TIMESTAMP
 );
 
 -- ------------------------------------------------

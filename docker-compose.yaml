@@ -56,11 +56,14 @@ x-airflow-common: &airflow-common
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/config:/opt/airflow/config
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/scripts:/opt/airflow/scripts
   user: "${AIRFLOW_UID}:${AIRFLOW_GID}"
   depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
     airflow-db:
+      condition: service_healthy
+    minio:
       condition: service_healthy
   networks:
     - all_in_one
@@ -303,6 +306,22 @@ services:
         echo "Files in shared volumes:"
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
+
+        if ! /entrypoint airflow connections get 'spark_default' >/dev/null 2>&1; then
+            /entrypoint airflow connections add 'spark_default' \
+                --conn-type 'spark' \
+                --conn-host 'local' \
+                --conn-extra '{"spark-binary": "spark-submit", "deploy-mode": "client"}'
+        fi
+
+        if [ ! -f /opt/airflow/scripts/.init_download ]; then
+          echo "Download past data to MinIO..."
+          chmod +x /opt/airflow/scripts/init_download.sh
+          /opt/airflow/scripts/init_download.sh
+          touch /opt/airflow/scripts/.init_download
+        else
+          echo "Skipping loading of previous data"
+        fi
 
     # yamllint enable rule:line-length
     environment:

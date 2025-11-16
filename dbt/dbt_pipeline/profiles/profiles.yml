@@ -1,0 +1,25 @@
+dbt_pipeline:
+  outputs:
+    dev:
+      type: trino
+      method: none # optional, one of {none | ldap | kerberos}
+      user: "{{ env_var('TRINO_USER') }}"
+      password: "{{ env_var('TRINO_PASSWORD') }}"
+      database: hive
+      host: "{{ env_var('TRINO_HOST') }}"
+      port: "{{ env_var('TRINO_PORT') | int }}"
+      schema: dev
+      threads: 4
+
+    prod:
+      type: trino
+      method: none # optional, one of {none | ldap | kerberos}
+      user: "{{ env_var('TRINO_USER') }}"
+      password: "{{ env_var('TRINO_PASSWORD') }}"
+      database: hive
+      host: "{{ env_var('TRINO_HOST') }}"
+      port: "{{ env_var('TRINO_PORT') | int }}"
+      schema: prod
+      threads: 8
+
+  target: dev

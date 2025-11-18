@@ -46,7 +46,7 @@ try:
     )
     print("Count=", df.count())
 
-    df.write.mode("append").partitionBy("date").parquet(args.minio_path)
+    df.writeTo(args.minio_path).partitionedBy("date").append()
 
 finally:
     spark.stop()

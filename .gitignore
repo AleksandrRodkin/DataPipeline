@@ -8,10 +8,12 @@
 /airflow/logs/**
 /data/output/**
 /minio_storage/**
-/jupyter-spark/dev/**
+/jupyter-spark/workspace/dev/**
 /airflow/scripts/.init_download
 /dbt/logs/**
 /dbt/target/**
 /dbt/dbt_packages/**
 /dbt/dbt_pipeline/logs/**
 /dbt/dbt_pipeline/profiles/.user.yml
+/airflow/scripts/load_promos.sh
+/jupyter-spark/spark/**

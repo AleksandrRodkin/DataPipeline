@@ -402,8 +402,8 @@ services:
         sleep 5;
       done;
 
-      mc mb -p local/${MINIO_PROD_BUCKET_NAME} || true;
-      mc policy set public local/${MINIO_PROD_BUCKET_NAME} || true;
+      mc mb -p local/${MINIO_RAW_BUCKET_NAME} || true;
+      mc policy set public local/${MINIO_RAW_BUCKET_NAME} || true;
 
       mc mb -p local/${MINIO_DEV_BUCKET_NAME} || true;
       mc policy set public local/${MINIO_DEV_BUCKET_NAME} || true;
@@ -418,20 +418,24 @@ services:
     build:
       context: .
       dockerfile: jupyter-spark/Dockerfile
+    env_file:
+      - .env
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: europe-central-1
     ports:
       - "16000:8888"
-      - "4041:4041"
+      - "4040:4040"
     volumes:
-      - ./jupyter-spark/dev:/app
+      - ./jupyter-spark/workspace/dev:/workspace/dev
     restart: always
     entrypoint: >
       /bin/sh -c "
-      jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=${NOTEBOOK_TOKEN}
+      jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=${NOTEBOOK_TOKEN}
       "
     networks:
       - all_in_one
-    profiles:
-      - dev
 
   iceberg-db:
     image: postgres:16
@@ -465,7 +469,7 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       AWS_REGION: eu-central-1
-      CATALOG_WAREHOUSE: s3://${MINIO_PROD_BUCKET_NAME}/
+      CATALOG_WAREHOUSE: s3://${MINIO_RAW_BUCKET_NAME}/
       CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
       CATALOG_S3_ENDPOINT: http://minio:9000
       CATALOG_S3_PATH__STYLE__ACCESS: true
@@ -496,11 +500,10 @@ services:
       S3_USE_PATH_STYLE_ACCESS: true
       AWS_ENDPOINT_URL: http://minio:9000
       AWS_S3_DISABLE_SSL: true
-      REST_CATALOG_WAREHOUSE: s3://${MINIO_PROD_BUCKET_NAME}/
       SOURCE_DB_USER: ${SOURCE_DB_USER}
       SOURCE_DB_PASSWORD: ${SOURCE_DB_PASSWORD}
       CONNECTION_URL: jdbc:postgresql://source-db:5432/${SOURCE_DB}
-      JAVA_TOOL_OPTIONS: "-Dtrino.authentication.type=BASIC -Dtrino.password-file.path=/etc/trino/password.db"
+      # JAVA_TOOL_OPTIONS: "-Dtrino.authentication.type=BASIC -Dtrino.password-file.path=/etc/trino/password.db"
     volumes:
       - ./trino-config:/etc/trino
     ports:

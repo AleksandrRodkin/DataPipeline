@@ -1,21 +1,91 @@
+# --------------------------------------------------------------------
+#  Base image
+# --------------------------------------------------------------------
 FROM python:3.13-slim
 
-RUN apt-get update && apt-get install -y openjdk-21-jdk wget curl
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/2.37.4/bundle-2.37.4.jar
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/software/amazon/awssdk/s3/2.37.4/s3-2.37.4.jar
-RUN wget -P /opt/bitnami/spark/jars https://jdbc.postgresql.org/download/postgresql-42.7.8.jar
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar
+# --------------------------------------------------------------------
+#  System deps
+# --------------------------------------------------------------------
+RUN apt-get update && apt-get install -y openjdk-21-jdk wget curl ca-certificates procps \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY jupyter-spark/jupyter_requirements.txt /requirements.txt
+ENV JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+# --------------------------------------------------------------------
+#  Install Spark 4.0.1 + Hadoop 3.4.1
+# --------------------------------------------------------------------
+ENV SPARK_VERSION=4.0.1
+ENV HADOOP_VERSION=3.4.1
+ENV SPARK_HOME=/opt/spark
+ENV PATH="$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH"
+
+COPY jupyter-spark/spark/ /tmp
+
+RUN mkdir -p /opt && \
+    if [ -f /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz ]; then \
+        echo ">>> Using local Spark archive"; \
+        tar -xzf /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz -C /opt; \
+    else \
+        echo ">>> Local Spark archive not found, downloading..."; \
+        curl -L "https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz" \
+        -o /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz; \
+        tar -xzf /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz -C /opt; \
+    fi && \
+    mv "/opt/spark-${SPARK_VERSION}-bin-hadoop3" "$SPARK_HOME" && \
+    rm -f /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz
+
+
+
+# --------------------------------------------------------------------
+#  Install Python libs
+# --------------------------------------------------------------------
+
+COPY jupyter-spark/requirements.txt /requirements.txt
 
 RUN python -m pip install --upgrade pip && \
     pip install --no-cache-dir -r /requirements.txt
 
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/org/apache/hive/hive-exec/4.0.1/hive-exec-4.0.1.jar
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/org/apache/hive/hive-metastore/4.0.1/hive-metastore-4.0.1.jar
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/org/apache/hive/hive-common/4.0.1/hive-common-4.0.1.jar
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/org/apache/hive/hive-serde/4.0.1/hive-serde-4.0.1.jar
-RUN wget -P /opt/bitnami/spark/jars https://repo1.maven.org/maven2/org/apache/spark/spark-hive_2.13/4.0.1/spark-hive_2.13-4.0.1.jar
+# --------------------------------------------------------------------
+#  Download required JARs
+# --------------------------------------------------------------------
+ENV ICEBERG_VERSION=1.10.0
+ENV SCALA_VERSION=2.13
+ENV POSTGRES_VERSION=42.7.8
+ENV DUCKDB_JDBC_VERSION=1.0.0
+ENV AWS_SDK_VERSION=2.37.4
 
-WORKDIR /app
+RUN echo "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}/${ICEBERG_VERSION}/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}-${ICEBERG_VERSION}.jar"
+RUN echo "https://jdbc.postgresql.org/download/postgresql-${POSTGRES_VERSION}.jar"
+RUN echo "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/${DUCKDB_JDBC_VERSION}/duckdb_jdbc-${DUCKDB_JDBC_VERSION}.jar"
+RUN echo "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/${DUCKDB_JDBC_VERSION}/duckdb_jdbc-${DUCKDB_JDBC_VERSION}.jar"
+RUN echo "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_VERSION}/hadoop-aws-${HADOOP_VERSION}.jar"
+RUN echo "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/${AWS_SDK_VERSION}/bundle-${AWS_SDK_VERSION}.jar"
+RUN echo "https://repo1.maven.org/maven2/software/amazon/awssdk/s3/${AWS_SDK_VERSION}/s3-${AWS_SDK_VERSION}.jar"
+
+RUN wget -q -O ${SPARK_HOME}/jars/iceberg-spark-runtime.jar \
+      "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}/${ICEBERG_VERSION}/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}-${ICEBERG_VERSION}.jar" \
+ && wget -q -O ${SPARK_HOME}/jars/postgresql.jar \
+      "https://jdbc.postgresql.org/download/postgresql-${POSTGRES_VERSION}.jar" \
+ && wget -q -O ${SPARK_HOME}/jars/duckdb_jdbc.jar \
+      "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/${DUCKDB_JDBC_VERSION}/duckdb_jdbc-${DUCKDB_JDBC_VERSION}.jar" \
+ && wget -q -O ${SPARK_HOME}/jars/hadoop-aws.jar \
+      "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_VERSION}/hadoop-aws-${HADOOP_VERSION}.jar" \
+ && wget -q -O ${SPARK_HOME}/jars/bundle.jar \
+      "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/${AWS_SDK_VERSION}/bundle-${AWS_SDK_VERSION}.jar" \
+ && wget -q -O ${SPARK_HOME}/jars/s3.jar \
+      "https://repo1.maven.org/maven2/software/amazon/awssdk/s3/${AWS_SDK_VERSION}/s3-${AWS_SDK_VERSION}.jar"
+
+# --------------------------------------------------------------------
+#  Spark config
+# --------------------------------------------------------------------
+COPY jupyter-spark/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+# --------------------------------------------------------------------
+#  Jupyter config
+# --------------------------------------------------------------------
+EXPOSE 8888 4040
+
+WORKDIR /workspace

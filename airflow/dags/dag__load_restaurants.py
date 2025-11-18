@@ -47,7 +47,7 @@ with DAG(
             "--table-name",
             table_path,
             "--minio-path",
-            f"s3a://{os.getenv('MINIO_PROD_BUCKET_NAME')}"
+            f"s3a://{os.getenv('MINIO_RAW_BUCKET_NAME')}"
             f"/raw/source/{table_path.replace('.', '/')}",
             "--window_start",
             "{{ data_interval_start"

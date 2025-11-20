@@ -538,18 +538,11 @@ services:
     volumes:
       - ./dbt:/usr/app/dbt
     working_dir: /usr/app/dbt/dbt_pipeline
-    command:
-      [
-        "dbt",
-        "docs",
-        "serve",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8091",
-        "--profiles-dir",
-        "/usr/app/dbt/dbt_pipeline/profiles",
-      ]
+    command: >
+      sh -c "
+        dbt docs generate --profiles-dir /usr/app/dbt/dbt_pipeline/profiles &&
+        dbt docs serve --host 0.0.0.0 --port 8091 --profiles-dir /usr/app/dbt/dbt_pipeline/profiles
+      "
     ports:
       - "8091:8091"
     restart: always

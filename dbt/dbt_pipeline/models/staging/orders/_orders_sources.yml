@@ -5,7 +5,7 @@ sources:
     description: "Data from orders DB"
     loader: Manual
     database: iceberg-datalake-raw
-    schema: source_app
+    schema: source_orders
     tables:
       - name: restaurants
       - name: couriers

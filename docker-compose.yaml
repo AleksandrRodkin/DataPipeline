@@ -405,6 +405,9 @@ services:
       mc mb -p local/${MINIO_RAW_BUCKET_NAME} || true;
       mc policy set public local/${MINIO_RAW_BUCKET_NAME} || true;
 
+      mc mb -p local/${MINIO_MART_BUCKET_NAME} || true;
+      mc policy set public local/${MINIO_MART_BUCKET_NAME} || true;
+
       mc mb -p local/${MINIO_DEV_BUCKET_NAME} || true;
       mc policy set public local/${MINIO_DEV_BUCKET_NAME} || true;
       "
@@ -417,7 +420,7 @@ services:
   jupyter-spark:
     build:
       context: .
-      dockerfile: jupyter-spark/Dockerfile
+      dockerfile: jupyter-spark/jupyter-spark-config/Dockerfile
     env_file:
       - .env
     environment:
@@ -428,7 +431,7 @@ services:
       - "16000:8888"
       - "4040:4040"
     volumes:
-      - ./jupyter-spark/workspace/dev:/workspace/dev
+      - ./jupyter-spark/jupyter-spark-workspace/dev:/workspace/dev
     restart: always
     entrypoint: >
       /bin/sh -c "
@@ -523,38 +526,50 @@ services:
     networks:
       - all_in_one
 
-  #  dbt:
-  #    container_name: dbt
-  #    build:
-  #      context: .
-  #      dockerfile: dbt/Dockerfile
-  #    depends_on:
-  #      trino:
-  #        condition: service_healthy
-  #      minio:
-  #        condition: service_healthy
-  #    volumes:
-  #      - ./dbt:/usr/app/dbt
-  #    working_dir: /usr/app/dbt/dbt_pipeline
-  #    command: ["tail", "-f", "/dev/null"]
-  #    restart: always
-  #    environment:
-  #      TRINO_USER: ${TRINO_USER}
-  #      TRINO_PASSWORD: ${TRINO_PASSWORD}
-  #      TRINO_HOST: trino
-  #      TRINO_PORT: 8080
-  #    healthcheck:
-  #      test:
-  #        [
-  #          "CMD-SHELL",
-  #          "dbt debug --profiles-dir /usr/app/dbt/dbt_pipeline/profiles",
-  #        ]
-  #      interval: 10s
-  #      timeout: 5s
-  #      retries: 5
-  #      start_period: 10s
-  #    networks:
-  #      - all_in_one
+  dbt:
+    build:
+      context: .
+      dockerfile: dbt/Dockerfile
+    depends_on:
+      trino:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./dbt:/usr/app/dbt
+    working_dir: /usr/app/dbt/dbt_pipeline
+    command:
+      [
+        "dbt",
+        "docs",
+        "serve",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8091",
+        "--profiles-dir",
+        "/usr/app/dbt/dbt_pipeline/profiles",
+      ]
+    ports:
+      - "8091:8091"
+    restart: always
+    environment:
+      TRINO_USER: ${TRINO_USER}
+      TRINO_PASSWORD: ${TRINO_PASSWORD}
+      TRINO_HOST: trino
+      TRINO_PORT: 8080
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "dbt debug --profiles-dir /usr/app/dbt/dbt_pipeline/profiles",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - all_in_one
 
 volumes:
   source-db-volume:

@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_orders__orders
+    description: "This model cleans up order data"
+    columns:
+      - name: order_id
+        description: "The primary key"
+        data_tests:
+          - unique
+          - not_null

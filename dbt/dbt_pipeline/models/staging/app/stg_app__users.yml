@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_app__users
+    description: "This model cleans up user data"
+    columns:
+      - name: user_id
+        description: "The primary key"
+        data_tests:
+          - unique
+          - not_null

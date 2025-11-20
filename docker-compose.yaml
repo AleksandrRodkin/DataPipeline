@@ -65,6 +65,23 @@ x-airflow-common: &airflow-common
       condition: service_healthy
     minio:
       condition: service_healthy
+    spark-master:
+      condition: service_healthy
+    spark-worker:
+      condition: service_healthy
+  networks:
+    - all_in_one
+
+x-spark-common: &spark-common
+  build:
+    context: .
+    dockerfile: jupyter-spark/jupyter-spark-config/Dockerfile
+  env_file:
+    - .env
+  environment: &spark-common-env
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    AWS_REGION: europe-central-1
   networks:
     - all_in_one
 
@@ -417,28 +434,76 @@ services:
     networks:
       - all_in_one
 
-  jupyter-spark:
-    build:
-      context: .
-      dockerfile: jupyter-spark/jupyter-spark-config/Dockerfile
-    env_file:
-      - .env
+  spark-master:
+    <<: *spark-common
     environment:
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-      AWS_REGION: europe-central-1
+      <<: *spark-common-env
+      SPARK_MODE: master
+    ports:
+      - "7077:7077" # Spark master
+      - "18080:8080" # Spark master UI
+    restart: always
+    entrypoint: >
+      /bin/sh -c "
+        /opt/spark/sbin/start-master.sh &&
+        tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  spark-worker:
+    <<: *spark-common
+    environment:
+      <<: *spark-common-env
+      SPARK_MASTER_URL: spark://spark-master:7077
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    ports:
+      - "8081:8081" # Worker UI
+    restart: always
+    entrypoint: >
+      /bin/sh -c "
+        /opt/spark/sbin/start-worker.sh spark://spark-master:7077 &&
+        tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  jupyter-spark:
+    <<: *spark-common
+    environment:
+      <<: *spark-common-env
+      SPARK_MASTER_URL: spark://spark-master:7077
     ports:
       - "16000:8888"
       - "4040:4040"
     volumes:
       - ./jupyter-spark/jupyter-spark-workspace/dev:/workspace/dev
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
     restart: always
     entrypoint: >
       /bin/sh -c "
       jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=${NOTEBOOK_TOKEN}
       "
-    networks:
-      - all_in_one
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
 
   iceberg-db:
     image: postgres:16

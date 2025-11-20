@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_app__sessions
+    description: "This model cleans up session data"
+    columns:
+      - name: session_id
+        description: "The primary key"
+        data_tests:
+          - unique
+          - not_null

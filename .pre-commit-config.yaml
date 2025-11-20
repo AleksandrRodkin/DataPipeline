@@ -31,3 +31,39 @@ repos:
     hooks:
       - id: sqlfmt
         files: '\.(sql)$'
+
+  - repo: https://github.com/dbt-checkpoint/dbt-checkpoint
+    rev: v2.0.7
+    hooks:
+      - id: check-model-has-description
+        args: ["--manifest", "dbt/dbt_pipeline/target/manifest.json"]
+        files: ^(dbt/dbt_pipeline/models/).*$
+      - id: check-model-has-tests-by-group
+        args:
+          [
+            "--manifest",
+            "dbt/dbt_pipeline/target/manifest.json",
+            "--tests",
+            "not_null",
+            "--test-cnt",
+            "1",
+            "--",
+          ]
+        files: ^(dbt/dbt_pipeline/models/).*$
+      - id: check-model-has-tests-by-group
+        args:
+          [
+            "--manifest",
+            "dbt/dbt_pipeline/target/manifest.json",
+            "--tests",
+            "unique",
+            "unique_combination_of_columns",
+            "--test-cnt",
+            "1",
+            "--",
+          ]
+        files: ^(dbt/dbt_pipeline/models/).*$
+
+      - id: check-macro-has-description
+        args: ["--manifest", "dbt/dbt_pipeline/target/manifest.json"]
+        files: ^(dbt/dbt_pipeline/macros/).*$

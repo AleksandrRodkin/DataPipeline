@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_orders__restaurants
+    description: "This model cleans up restaurant data"
+    columns:
+      - name: restaurant_id
+        description: "The primary key"
+        data_tests:
+          - unique
+          - not_null

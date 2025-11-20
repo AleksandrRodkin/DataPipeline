@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_marketing__promos
+    description: "This model cleans up promos data"
+    columns:
+      - name: promo_id
+        description: "The primary key"
+        data_tests:
+          - unique
+          - not_null

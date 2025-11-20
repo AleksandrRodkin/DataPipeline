@@ -22,7 +22,7 @@ ENV HADOOP_VERSION=3.4.1
 ENV SPARK_HOME=/opt/spark
 ENV PATH="$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH"
 
-COPY jupyter-spark/spark/ /tmp
+COPY jupyter-spark/jupyter-spark-config/spark/ /tmp
 
 RUN mkdir -p /opt && \
     if [ -f /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz ]; then \
@@ -37,17 +37,6 @@ RUN mkdir -p /opt && \
     mv "/opt/spark-${SPARK_VERSION}-bin-hadoop3" "$SPARK_HOME" && \
     rm -f /tmp/spark-${SPARK_VERSION}-bin-hadoop3.tgz
 
-
-
-# --------------------------------------------------------------------
-#  Install Python libs
-# --------------------------------------------------------------------
-
-COPY jupyter-spark/requirements.txt /requirements.txt
-
-RUN python -m pip install --upgrade pip && \
-    pip install --no-cache-dir -r /requirements.txt
-
 # --------------------------------------------------------------------
 #  Download required JARs
 # --------------------------------------------------------------------
@@ -56,14 +45,6 @@ ENV SCALA_VERSION=2.13
 ENV POSTGRES_VERSION=42.7.8
 ENV DUCKDB_JDBC_VERSION=1.0.0
 ENV AWS_SDK_VERSION=2.37.4
-
-RUN echo "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}/${ICEBERG_VERSION}/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}-${ICEBERG_VERSION}.jar"
-RUN echo "https://jdbc.postgresql.org/download/postgresql-${POSTGRES_VERSION}.jar"
-RUN echo "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/${DUCKDB_JDBC_VERSION}/duckdb_jdbc-${DUCKDB_JDBC_VERSION}.jar"
-RUN echo "https://repo1.maven.org/maven2/org/duckdb/duckdb_jdbc/${DUCKDB_JDBC_VERSION}/duckdb_jdbc-${DUCKDB_JDBC_VERSION}.jar"
-RUN echo "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/${HADOOP_VERSION}/hadoop-aws-${HADOOP_VERSION}.jar"
-RUN echo "https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/${AWS_SDK_VERSION}/bundle-${AWS_SDK_VERSION}.jar"
-RUN echo "https://repo1.maven.org/maven2/software/amazon/awssdk/s3/${AWS_SDK_VERSION}/s3-${AWS_SDK_VERSION}.jar"
 
 RUN wget -q -O ${SPARK_HOME}/jars/iceberg-spark-runtime.jar \
       "https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}/${ICEBERG_VERSION}/iceberg-spark-runtime-${SPARK_VERSION%.*}_${SCALA_VERSION}-${ICEBERG_VERSION}.jar" \
@@ -79,9 +60,19 @@ RUN wget -q -O ${SPARK_HOME}/jars/iceberg-spark-runtime.jar \
       "https://repo1.maven.org/maven2/software/amazon/awssdk/s3/${AWS_SDK_VERSION}/s3-${AWS_SDK_VERSION}.jar"
 
 # --------------------------------------------------------------------
+#  Install Python libs
+# --------------------------------------------------------------------
+
+RUN python -m pip install pyspark==${SPARK_VERSION}
+RUN python -m pip install jupyterlab==4.4.10
+RUN python -m pip install pandas==2.3.3
+RUN python -m pip install pyarrow==22.0.0
+RUN python -m pip install duckdb==1.4.2
+
+# --------------------------------------------------------------------
 #  Spark config
 # --------------------------------------------------------------------
-COPY jupyter-spark/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+COPY jupyter-spark/jupyter-spark-config/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
 
 # --------------------------------------------------------------------
 #  Jupyter config

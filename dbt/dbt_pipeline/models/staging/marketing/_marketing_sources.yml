@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: marketing
+    description: "Marketing data"
+    loader: Manual
+    database: iceberg-datalake-raw
+    schema: source_marketing
+    tables:
+      - name: promos

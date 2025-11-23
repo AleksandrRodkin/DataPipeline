@@ -17,7 +17,7 @@ default_args = {
     "depends_on_past": False,
     "email_on_failure": False,
     "retries": 1,
-    "start_date": pendulum.parse("2025-11-10").in_timezone("UTC"),
+    "start_date": pendulum.parse("2025-11-22").in_timezone("UTC"),
     "retry_delay": timedelta(minutes=2),
 }
 
@@ -36,7 +36,9 @@ with DAG(
     fetch_and_load = SparkSubmitOperator(
         task_id=f"load_data_from_table_{table_path}_to_lake",
         application=f"/opt/airflow/dags/{help_scr}",
-        conn_id="spark_default",
+        conn_id="spark_cluster",
+        verbose=True,
+        properties_file="/opt/spark/conf/spark-defaults.conf",
         application_args=[
             "--url",
             f"jdbc:postgresql://source-db:5432/{os.getenv('SOURCE_DB')}",
@@ -47,8 +49,7 @@ with DAG(
             "--table-name",
             table_path,
             "--minio-path",
-            f"s3a://{os.getenv('MINIO_RAW_BUCKET_NAME')}"
-            f"/raw/source/{table_path.replace('.', '/')}",
+            f"source_{table_path}",
             "--window_start",
             "{{ data_interval_start"
             ".in_timezone('Europe/Tallinn')"
@@ -58,23 +59,6 @@ with DAG(
             "   else data_interval_start + dag.schedule"
             ").in_timezone('Europe/Tallinn').strftime('%Y-%m-%d %H:%M:%S') }}",
         ],
-        conf={
-            "spark.executor.instances": "1",
-            "spark.executor.memory": "2g",
-            "spark.executor.cores": "1",
-            "spark.driver.memory": "1g",
-            "spark.hadoop.fs.s3a.endpoint": "http://minio:9000",
-            "spark.hadoop.fs.s3a.access.key": os.getenv("MINIO_ROOT_USER"),
-            "spark.hadoop.fs.s3a.secret.key": os.getenv("MINIO_ROOT_PASSWORD"),
-            "spark.hadoop.fs.s3a.path.style.access": "true",
-            "spark.hadoop.fs.s3a.connection.ssl.enabled": "false",
-        },
-        jars=(
-            "/opt/bitnami/spark/jars/postgresql-42.7.8.jar,"
-            "/opt/bitnami/spark/jars/hadoop-aws-3.4.1.jar,"
-            "/opt/bitnami/spark/jars/bundle-2.37.4.jar,"
-            "/opt/bitnami/spark/jars/s3-2.37.4.jar"
-        ),
     )
 
     fetch_and_load.doc_md = dedent(

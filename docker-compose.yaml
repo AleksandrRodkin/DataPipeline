@@ -47,6 +47,9 @@ x-airflow-common: &airflow-common
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
     # yamllint enable rule:line-length
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    AWS_REGION: europe-central-1
 
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: "/opt/airflow/config/airflow.cfg"
@@ -79,9 +82,14 @@ x-spark-common: &spark-common
   env_file:
     - .env
   environment: &spark-common-env
+    SPARK_NO_DAEMONIZE: true
     AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
     AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
     AWS_REGION: europe-central-1
+  volumes:
+    - ./jupyter-spark/spark-logs:/opt/spark/logs
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/scripts:/opt/airflow/scripts
   networks:
     - all_in_one
 
@@ -324,10 +332,10 @@ services:
         echo
         ls -la /opt/airflow/{logs,dags,plugins,config}
 
-        if ! /entrypoint airflow connections get 'spark_default' >/dev/null 2>&1; then
-            /entrypoint airflow connections add 'spark_default' \
+        if ! /entrypoint airflow connections get 'spark_cluster' >/dev/null 2>&1; then
+            /entrypoint airflow connections add 'spark_cluster' \
                 --conn-type 'spark' \
-                --conn-host 'local' \
+                --conn-host 'spark://spark-master:7077' \
                 --conn-extra '{"spark-binary": "spark-submit", "deploy-mode": "client"}'
         fi
 
@@ -504,6 +512,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 25s
+    profiles:
+      - dev
 
   iceberg-db:
     image: postgres:16

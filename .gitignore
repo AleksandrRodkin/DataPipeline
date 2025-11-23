@@ -15,6 +15,6 @@
 /dbt/dbt_packages/**
 /dbt/dbt_pipeline/logs/**
 /dbt/dbt_pipeline/profiles/.user.yml
-/airflow/scripts/load_promos.sh
 /jupyter-spark/jupyter-spark-config/spark/**
 /dbt/dbt_pipeline/target/**
+/jupyter-spark/spark-logs/**

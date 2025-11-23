@@ -1,6 +1,13 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, to_date
 import argparse
+from pyspark.sql.types import (
+    StructType,
+    StructField,
+    StringType,
+    TimestampType,
+    DateType,
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--url", required=True)
@@ -14,12 +21,23 @@ args = parser.parse_args()
 
 ts_col = "registration_dt"
 
-spark = (
-    SparkSession.builder.appName("LoadToLake")
-    .config("spark.ui.port", "4041")
-    .getOrCreate()
-)
+spark = SparkSession.builder.appName("LoadToLake").getOrCreate()
+
 try:
+
+    schema = StructType(
+        [
+            StructField("id", StringType(), False),
+            StructField("name", StringType(), True),
+            StructField("city", StringType(), True),
+            StructField("platform", StringType(), True),
+            StructField("gender", StringType(), True),
+            StructField("birth_date", DateType(), True),
+            StructField("registration_dt", TimestampType(), False),
+            StructField("date", DateType(), False),
+        ]
+    )
+
     df = (
         spark.read.format("jdbc")
         .option("url", args.url)
@@ -38,15 +56,19 @@ try:
         )
     )
 
-    df = df.withColumn("reg_date", to_date(col(ts_col)))
+    df = df.withColumn("date", to_date(col(ts_col)))
+
+    df = spark.createDataFrame(df.rdd, schema)
 
     print(
         f"Start timestamp '{args.window_start}'"
         f" AND End timestamp '{args.window_end}'"
     )
-    print("Count=", df.count())
+    print("Count =", df.count())
 
-    df.write.mode("append").partitionBy("reg_date").parquet(args.minio_path)
+    df.repartition(10).writeTo(f"datalake.{args.minio_path}").partitionedBy(
+        "date"
+    ).createOrReplace()
 
 finally:
     spark.stop()

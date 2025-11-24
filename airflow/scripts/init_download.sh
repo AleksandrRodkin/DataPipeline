@@ -1,5 +1,4 @@
 WINDOW_END="2025-11-22"
-
 SPARK_APPS=(
   "/opt/airflow/dags/helpers/spark__load_users.py"
   "/opt/airflow/dags/helpers/spark__load_sessions.py"
@@ -8,7 +7,6 @@ SPARK_APPS=(
   "/opt/airflow/dags/helpers/spark__load_promos.py"
   "/opt/airflow/dags/helpers/spark__load_orders.py"
 )
-
 TABLE_PATHS=(
   "app.users"
   "app.sessions"
@@ -17,7 +15,6 @@ TABLE_PATHS=(
   "marketing.promos"
   "orders.orders"
 )
-
 for i in "${!SPARK_APPS[@]}"; do
   SPARK_APP="${SPARK_APPS[$i]}"
   TABLE_PATH="${TABLE_PATHS[$i]}"

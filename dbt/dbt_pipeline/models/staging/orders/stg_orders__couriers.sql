@@ -4,5 +4,6 @@ select
     city,
     transport,
     rating,
-    modified_at as last_change_ts
+    modified_at as last_change_ts,
+    {{ add_etl_timestamp() }}
 from {{ source('orders', 'couriers') }}

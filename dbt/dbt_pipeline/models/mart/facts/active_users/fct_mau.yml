@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_mau
+    description: "Number active users in 30 days"
+
+    columns:
+      - name: session_date
+        description: "The date for which MAU is determined"
+        data_tests:
+          - unique
+          - not_null

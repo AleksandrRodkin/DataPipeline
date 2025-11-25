@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_wau
+    description: "Number of week active users"
+
+    columns:
+      - name: session_date
+        description: "The date for which WAU is determined"
+        data_tests:
+          - unique
+          - not_null

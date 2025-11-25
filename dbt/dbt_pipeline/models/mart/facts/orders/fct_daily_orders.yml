@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_daily_orders
+    description: "Number of completed daily orders"
+
+    columns:
+      - name: order_date
+        description: "The date on which the orders were created"
+        data_tests:
+          - unique
+          - not_null

@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: dim_users
+    description: "Aggregates user information with their order statistics"
+
+    columns:
+      - name: user_id
+        description: "ID of each user"
+        data_tests:
+          - unique
+          - not_null
+
+      - name: user_name
+        description: "User's first and last name"
+
+      - name: first_order_date
+        description: "The date of the user's first order"
+
+      - name: most_recent_order_date
+        description: "The date of the user's most recent order"
+
+      - name: number_of_orders
+        description: "The total number of orders placed by the user"

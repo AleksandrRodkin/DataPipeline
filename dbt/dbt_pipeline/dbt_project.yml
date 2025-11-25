@@ -32,5 +32,11 @@ models:
     staging:
       +database: iceberg-datalake-mart
       +schema: stg
-      +materialized: view
+      +materialized: table
       +tags: staging
+
+    mart:
+      +database: iceberg-datalake-mart
+      +schema: mart
+      +materialized: incremental
+      +tags: mart

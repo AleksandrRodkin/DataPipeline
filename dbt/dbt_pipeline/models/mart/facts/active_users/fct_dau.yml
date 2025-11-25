@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_dau
+    description: "Number of daily active users"
+
+    columns:
+      - name: session_date
+        description: "The date for which DAU is determined"
+        data_tests:
+          - unique
+          - not_null

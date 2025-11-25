@@ -10,5 +10,7 @@ select
     platform as user_platform,
     total_amount,
     payment_method,
-    promo_id
+    promo_id,
+    date as order_date,
+    {{ add_etl_timestamp() }}
 from {{ source('orders', 'orders') }}

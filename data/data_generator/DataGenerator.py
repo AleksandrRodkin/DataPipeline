@@ -2,21 +2,6 @@
 """
 Food Delivery Data Simulator
 Single-file implementation matching the requested project structure.
-
-Структура внутри файла разделена комментариями на модули:
- - config
- - entities
- - utils
- - generators
- - simulation
- - main
-
-Запуск: python food_delivery_simulator.py
-
-В результате будут созданы CSV в ./output
-
-Примечание: для уменьшения времени генерации по умолчанию можно уменьшить
-AVG_ORDERS_PER_DAY в блоке CONFIG или временной интервал.
 """
 
 # ---------------------------
@@ -34,6 +19,7 @@ from typing import List, Optional, Dict, Any
 import numpy as np
 from faker import Faker
 import pandas as pd
+import argparse
 
 RANDOM_SEED = 42
 START_DATE = "2025-01-01"
@@ -67,8 +53,6 @@ HOURLY_ACTIVITY = {
 
 # Модель ретеншена (вероятность вернуться N-го дня после регистрации)
 RETENTION_MODEL = {1: 0.6, 2: 0.4, 3: 0.3, 4: 0.25, 5: 0.2, 6: 0.15, 7: 0.1}
-
-OUTPUT_DIR = "output"
 
 # Ensure reproducible
 random.seed(RANDOM_SEED)
@@ -224,10 +208,6 @@ class Session:
 # ---------------------------
 # UTILS (utils.py)
 # ---------------------------
-
-
-def ensure_output_dir():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 def daterange(start_date: datetime, end_date: datetime):
@@ -481,13 +461,17 @@ def generate_session(t: datetime, user: User) -> Session:
 
 
 class Simulator:
-    def __init__(self):
+    def __init__(self, output_dir: str = "data"):
         self.restaurants: List[Restaurant] = []
         self.users: List[User] = []
         self.couriers: List[Courier] = []
         self.promos: List[Promocode] = []
         self.orders: List[Order] = []
         self.sessions: List[Session] = []
+        self.output_dir = output_dir
+
+    def ensure_output_dir(self):
+        os.makedirs(self.output_dir, exist_ok=True)
 
     def initialize_base(self):
         # initial seeds of entities according to CONFIG
@@ -507,7 +491,7 @@ class Simulator:
             self.promos.append(generate_promo(promo_dt))
 
     def run(self):
-        ensure_output_dir()
+        self.ensure_output_dir()
         start = datetime.fromisoformat(START_DATE)
         end = datetime.fromisoformat(END_DATE)
         current = start
@@ -620,7 +604,7 @@ class Simulator:
         def save_list(items, filename):
             rows = [getattr(i, "to_dict")() for i in items]
             df = pd.DataFrame(rows)
-            path = os.path.join(OUTPUT_DIR, filename)
+            path = os.path.join(self.output_dir, filename)
             df.to_csv(path, index=False)
             print(f"Saved {len(df)} rows to {path}")
             return df
@@ -649,5 +633,9 @@ class Simulator:
 # ---------------------------
 
 if __name__ == "__main__":
-    sim = Simulator()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", default="data")
+    args = parser.parse_args()
+
+    sim = Simulator(output_dir=args.output_dir)
     sim.run()

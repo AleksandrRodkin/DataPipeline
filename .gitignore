@@ -6,7 +6,7 @@
 .env
 /airflow/config/airflow.cfg
 /airflow/logs/**
-/data/output/**
+/data/data_generator/data/**
 /minio_storage/**
 /jupyter-spark/jupyter-spark-workspace/dev/**
 /airflow/scripts/.init_download

@@ -1,4 +1,4 @@
-WINDOW_END="2025-11-22"
+WINDOW_END="2025-12-01"
 SPARK_APPS=(
   "/opt/airflow/dags/helpers/spark__load_users.py"
   "/opt/airflow/dags/helpers/spark__load_sessions.py"

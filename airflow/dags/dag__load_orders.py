@@ -17,7 +17,7 @@ default_args = {
     "depends_on_past": False,
     "email_on_failure": False,
     "retries": 1,
-    "start_date": pendulum.parse("2025-11-22").in_timezone("UTC"),
+    "start_date": pendulum.parse("2025-12-01").in_timezone("UTC"),
     "retry_delay": timedelta(minutes=2),
 }
 

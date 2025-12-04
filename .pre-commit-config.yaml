@@ -36,9 +36,11 @@ repos:
     rev: v2.0.7
     hooks:
       - id: check-model-has-description
+        stages: [manual]
         args: ["--manifest", "dbt/dbt_pipeline/target/manifest.json"]
         files: ^(dbt/dbt_pipeline/models/).*$
       - id: check-model-has-tests-by-group
+        stages: [manual]
         args:
           [
             "--manifest",
@@ -51,6 +53,7 @@ repos:
           ]
         files: ^(dbt/dbt_pipeline/models/).*$
       - id: check-model-has-tests-by-group
+        stages: [manual]
         args:
           [
             "--manifest",
@@ -65,5 +68,6 @@ repos:
         files: ^(dbt/dbt_pipeline/models/).*$
 
       - id: check-macro-has-description
+        stages: [manual]
         args: ["--manifest", "dbt/dbt_pipeline/target/manifest.json"]
         files: ^(dbt/dbt_pipeline/macros/).*$

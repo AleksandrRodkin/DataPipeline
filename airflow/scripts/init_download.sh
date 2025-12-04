@@ -1,4 +1,12 @@
-WINDOW_END="2025-12-01"
+#!/bin/bash
+set -e
+
+WINDOW_END=$(python3 - <<'EOF'
+import yaml
+with open("/opt/pipeline_config.yml") as f:
+    print(yaml.safe_load(f)["pipeline"]["init_load_date"])
+EOF
+)
 SPARK_APPS=(
   "/opt/airflow/dags/helpers/spark__load_users.py"
   "/opt/airflow/dags/helpers/spark__load_sessions.py"

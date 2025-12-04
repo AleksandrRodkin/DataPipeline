@@ -71,3 +71,5 @@ RUN python -m pip install pyspark==${SPARK_VERSION}
 RUN pip install --no-cache-dir -r /requirements.txt
 
 COPY jupyter-spark/jupyter-spark-config/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+COPY airflow/pipeline_config.yml /opt/pipeline_config.yml

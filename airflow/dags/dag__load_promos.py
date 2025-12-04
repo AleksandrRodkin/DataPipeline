@@ -6,6 +6,11 @@ from airflow.providers.apache.spark.operators.spark_submit import (
 import pendulum
 from datetime import timedelta
 from textwrap import dedent
+import yaml
+
+with open("/opt/pipeline_config.yml") as f:
+    string_date = yaml.safe_load(f)["pipeline"]["init_load_date"]
+    start_date = pendulum.parse(string_date).in_timezone("UTC")
 
 table_path = "marketing.promos"
 interval = timedelta(days=1)  # timedelta(minutes=10)
@@ -17,7 +22,7 @@ default_args = {
     "depends_on_past": False,
     "email_on_failure": False,
     "retries": 1,
-    "start_date": pendulum.parse("2025-12-01").in_timezone("UTC"),
+    "start_date": start_date,
     "retry_delay": timedelta(minutes=2),
 }
 

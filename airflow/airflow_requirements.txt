@@ -1,1 +1,2 @@
 apache-airflow-providers-apache-spark==5.3.3
+pyyaml==6.0.3

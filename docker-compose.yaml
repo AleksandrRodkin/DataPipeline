@@ -26,8 +26,9 @@ x-airflow-common: &airflow-common
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: apache/airflow:3.1.1
-  # build: .
+  build:
+    context: .
+    dockerfile: airflow/Dockerfile
   env_file:
     - .env
   environment: &airflow-common-env
@@ -46,6 +47,9 @@ x-airflow-common: &airflow-common
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
     # yamllint enable rule:line-length
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    AWS_REGION: europe-central-1
 
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: "/opt/airflow/config/airflow.cfg"
@@ -55,39 +59,42 @@ x-airflow-common: &airflow-common
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/config:/opt/airflow/config
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/scripts:/opt/airflow/scripts
+    - ./airflow/pipeline_config:/opt/pipeline_config
   user: "${AIRFLOW_UID}:${AIRFLOW_GID}"
   depends_on: &airflow-common-depends-on
     redis:
       condition: service_healthy
     airflow-db:
       condition: service_healthy
+    minio:
+      condition: service_healthy
+    spark-master:
+      condition: service_healthy
+    spark-worker:
+      condition: service_healthy
+  networks:
+    - all_in_one
+
+x-spark-common: &spark-common
+  build:
+    context: .
+    dockerfile: jupyter-spark/jupyter-spark-config/Dockerfile
+  env_file:
+    - .env
+  environment: &spark-common-env
+    SPARK_NO_DAEMONIZE: true
+    AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+    AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    AWS_REGION: europe-central-1
+  volumes:
+    - ./jupyter-spark/spark-logs:/opt/spark/logs
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/scripts:/opt/airflow/scripts
   networks:
     - all_in_one
 
 services:
-  source-db:
-    build:
-      context: .
-      dockerfile: data/databases/source_db/Dockerfile
-    environment:
-      POSTGRES_USER: ${SOURCE_DB_USER}
-      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD}
-      POSTGRES_DB: ${SOURCE_DB}
-    env_file:
-      - .env
-    ports:
-      - "5444:5432"
-    volumes:
-      - source-db-volume:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${SOURCE_DB_USER}"]
-      interval: 10s
-      retries: 5
-      start_period: 5s
-    restart: always
-    networks:
-      - all_in_one
-
   airflow-db:
     image: postgres:16
     environment:
@@ -224,84 +231,11 @@ services:
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
-    # yamllint disable rule:line-length
-    command:
-      - -c
-      - |
-        if [[ -z "${AIRFLOW_UID}" ]]; then
-          echo
-          echo -e "\033[1;33mWARNING!!!: AIRFLOW_UID not set!\e[0m"
-          echo "If you are on Linux, you SHOULD follow the instructions below to set "
-          echo "AIRFLOW_UID environment variable, otherwise files will be owned by root."
-          echo "For other operating systems you can get rid of the warning with manually created .env file:"
-          echo "    See: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#setting-the-right-airflow-user"
-          echo
-          export AIRFLOW_UID=$$(id -u)
-        fi
-        one_meg=1048576
-        mem_available=$$(($$(getconf _PHYS_PAGES) * $$(getconf PAGE_SIZE) / one_meg))
-        cpus_available=$$(grep -cE 'cpu[0-9]+' /proc/stat)
-        disk_available=$$(df / | tail -1 | awk '{print $$4}')
-        warning_resources="false"
-        if (( mem_available < 4000 )) ; then
-          echo
-          echo -e "\033[1;33mWARNING!!!: Not enough memory available for Docker.\e[0m"
-          echo "At least 4GB of memory required. You have $$(numfmt --to iec $$((mem_available * one_meg)))"
-          echo
-          warning_resources="true"
-        fi
-        if (( cpus_available < 2 )); then
-          echo
-          echo -e "\033[1;33mWARNING!!!: Not enough CPUS available for Docker.\e[0m"
-          echo "At least 2 CPUs recommended. You have $${cpus_available}"
-          echo
-          warning_resources="true"
-        fi
-        if (( disk_available < one_meg * 10 )); then
-          echo
-          echo -e "\033[1;33mWARNING!!!: Not enough Disk space available for Docker.\e[0m"
-          echo "At least 10 GBs recommended. You have $$(numfmt --to iec $$((disk_available * 1024 )))"
-          echo
-          warning_resources="true"
-        fi
-        if [[ $${warning_resources} == "true" ]]; then
-          echo
-          echo -e "\033[1;33mWARNING!!!: You have not enough resources to run Airflow (see above)!\e[0m"
-          echo "Please follow the instructions to increase amount of resources available:"
-          echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
-          echo
-        fi
-        echo
-        echo "Creating missing opt dirs if missing:"
-        echo
-        mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
-        echo
-        echo "Airflow version:"
-        /entrypoint airflow version
-        echo
-        echo "Files in shared volumes:"
-        echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
-        echo
-        echo "Running airflow config list to create default config file if missing."
-        echo
-        /entrypoint airflow config list >/dev/null
-        echo
-        echo "Files in shared volumes:"
-        echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
-        echo
-        echo "Change ownership of files in /opt/airflow to ${AIRFLOW_UID}:0"
-        echo
-        chown -R "${AIRFLOW_UID}:0" /opt/airflow/
-        echo
-        echo "Change ownership of files in shared volumes to ${AIRFLOW_UID}:0"
-        echo
-        chown -v -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins,config}
-        echo
-        echo "Files in shared volumes:"
-        echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+    command: >
+      -c "
+        chmod +x /opt/airflow/scripts/airflow_init.sh
+        /opt/airflow/scripts/airflow_init.sh
+      "
 
     # yamllint enable rule:line-length
     environment:
@@ -350,9 +284,292 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  data-generator:
+    build:
+      context: .
+      dockerfile: data/data_generator/Dockerfile
+    volumes:
+      - ./data/data_generator/data:/data
+    restart: on-failure
+
+  source-db:
+    build:
+      context: .
+      dockerfile: data/databases/source_db/Dockerfile
+    environment:
+      POSTGRES_USER: ${SOURCE_DB_USER}
+      POSTGRES_PASSWORD: ${SOURCE_DB_PASSWORD}
+      POSTGRES_DB: ${SOURCE_DB}
+    env_file:
+      - .env
+    ports:
+      - "5444:5432"
+    volumes:
+      - ./data/data_generator/data:/data/
+      - source-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${SOURCE_DB_USER}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    depends_on:
+      data-generator:
+        condition: service_completed_successfully
+    networks:
+      - all_in_one
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: minio
+    restart: always
+    ports:
+      - "9001:9001" # UI
+      - "9009:9000" # API
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    env_file:
+      - .env
+    volumes:
+      - ./minio_storage:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - all_in_one
+
+  create-bucket:
+    image: minio/mc
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD}; do
+        echo 'Waiting for MinIO...';
+        sleep 5;
+      done;
+
+      mc mb -p local/${MINIO_RAW_BUCKET_NAME} || true;
+      mc policy set public local/${MINIO_RAW_BUCKET_NAME} || true;
+
+      mc mb -p local/${MINIO_MART_BUCKET_NAME} || true;
+      mc policy set public local/${MINIO_MART_BUCKET_NAME} || true;
+
+      mc mb -p local/${MINIO_DEV_BUCKET_NAME} || true;
+      mc policy set public local/${MINIO_DEV_BUCKET_NAME} || true;
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - all_in_one
+
+  spark-master:
+    <<: *spark-common
+    environment:
+      <<: *spark-common-env
+      SPARK_MODE: master
+    ports:
+      - "7077:7077" # Spark master
+      - "18080:8080" # Spark master UI
+    restart: always
+    entrypoint: >
+      /bin/sh -c "
+        /opt/spark/sbin/start-master.sh &&
+        tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  spark-worker:
+    <<: *spark-common
+    environment:
+      <<: *spark-common-env
+      SPARK_MASTER_URL: spark://spark-master:7077
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    ports:
+      - "8081:8081" # Worker UI
+    restart: always
+    entrypoint: >
+      /bin/sh -c "
+        /opt/spark/sbin/start-worker.sh spark://spark-master:7077 &&
+        tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  jupyter-spark:
+    <<: *spark-common
+    environment:
+      <<: *spark-common-env
+      SPARK_MASTER_URL: spark://spark-master:7077
+    ports:
+      - "16000:8888"
+      - "4040:4040"
+    volumes:
+      - ./jupyter-spark/jupyter-spark-workspace/dev:/workspace/dev
+    depends_on:
+      spark-master:
+        condition: service_healthy
+      spark-worker:
+        condition: service_healthy
+    restart: always
+    entrypoint: >
+      /bin/sh -c "
+      jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --ServerApp.token=${NOTEBOOK_TOKEN}
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    profiles:
+      - dev
+
+  iceberg-db:
+    image: postgres:16
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${ICEBERG_USER}
+      POSTGRES_PASSWORD: ${ICEBERG_PASSWORD}
+      POSTGRES_DB: ${ICEBERG_DB}
+    ports:
+      - "9432:5432"
+    volumes:
+      - iceberg-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD", "pg_isready", "-U", "${ICEBERG_USER}", "-d", "${ICEBERG_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    networks:
+      - all_in_one
+
+  rest:
+    image: tabulario/iceberg-rest:1.6.0
+    ports:
+      - "8181:8181"
+    env_file:
+      - .env
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: eu-central-1
+      CATALOG_WAREHOUSE: s3://${MINIO_RAW_BUCKET_NAME}/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: true
+      CATALOG_URI: jdbc:postgresql://iceberg-db:5432/${ICEBERG_DB}?user=${ICEBERG_USER}&password=${ICEBERG_PASSWORD}
+      CATALOG_JDBC_DRIVER: org.postgresql.Driver
+      CATALOG_JDBC_USER: ${ICEBERG_USER}
+      CATALOG_JDBC_PASSWORD: ${ICEBERG_PASSWORD}
+    depends_on:
+      iceberg-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: always
+    networks:
+      - all_in_one
+
+  trino:
+    container_name: trino
+    image: trinodb/trino:478
+    env_file:
+      - .env
+    environment:
+      TRINO_USER: ${TRINO_USER}
+      TRINO_PASSWORD: ${TRINO_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: eu-central-1
+      S3_USE_PATH_STYLE_ACCESS: true
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_S3_DISABLE_SSL: true
+      SOURCE_DB_USER: ${SOURCE_DB_USER}
+      SOURCE_DB_PASSWORD: ${SOURCE_DB_PASSWORD}
+      CONNECTION_URL: jdbc:postgresql://source-db:5432/${SOURCE_DB}
+      # JAVA_TOOL_OPTIONS: "-Dtrino.authentication.type=BASIC -Dtrino.password-file.path=/etc/trino/password.db"
+    volumes:
+      - ./trino-config:/etc/trino
+    ports:
+      - "8086:8080"
+    depends_on:
+      minio:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/v1/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    networks:
+      - all_in_one
+
+  dbt:
+    build:
+      context: .
+      dockerfile: dbt/Dockerfile
+    depends_on:
+      trino:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./dbt:/usr/app/dbt
+    working_dir: /usr/app/dbt/dbt_pipeline
+    command: >
+      sh -c "
+        dbt run &&
+        dbt docs generate --profiles-dir /usr/app/dbt/dbt_pipeline/profiles &&
+        dbt docs serve --host 0.0.0.0 --port 8091 --profiles-dir /usr/app/dbt/dbt_pipeline/profiles
+      "
+    ports:
+      - "8091:8091"
+    restart: always
+    environment:
+      TRINO_USER: ${TRINO_USER}
+      TRINO_PASSWORD: ${TRINO_PASSWORD}
+      TRINO_HOST: trino
+      TRINO_PORT: 8080
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "dbt debug --profiles-dir /usr/app/dbt/dbt_pipeline/profiles",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - all_in_one
+
 volumes:
   source-db-volume:
   airflow-db-volume:
+  iceberg-db-volume:
 networks:
   all_in_one:
     driver: bridge

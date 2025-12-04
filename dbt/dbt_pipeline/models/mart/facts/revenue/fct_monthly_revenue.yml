@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_monthly_revenue
+    description: "Revenue for 30 days"
+
+    columns:
+      - name: order_date
+        description: "The date on which the orders were created"
+        data_tests:
+          - unique
+          - not_null

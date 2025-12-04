@@ -1,0 +1,6 @@
+https://trino.io/docs/current/installation/deployment.html
+https://trino.io/docs/current/installation/containers.html
+
+https://trino.io/docs/current/object-storage/file-system-s3.html
+
+https://trino.io/docs/current/connector/iceberg.html

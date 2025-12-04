@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: app
+    description: "Data from app DB"
+    loader: Manual
+    database: iceberg-datalake-raw
+    schema: source_app
+    tables:
+      - name: users
+      - name: sessions

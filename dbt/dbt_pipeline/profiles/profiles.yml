@@ -1,0 +1,14 @@
+dbt_pipeline:
+  outputs:
+    mart:
+      type: trino
+      method: none # optional, one of {none | ldap | kerberos}
+      user: "{{ env_var('TRINO_USER') }}"
+      password: "{{ env_var('TRINO_PASSWORD') }}"
+      database: iceberg-datalake-mart
+      host: "{{ env_var('TRINO_HOST') }}"
+      port: "{{ env_var('TRINO_PORT') | int }}"
+      schema: dbt
+      threads: 4
+
+  target: mart

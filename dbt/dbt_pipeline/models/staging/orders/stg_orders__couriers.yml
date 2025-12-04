@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_orders__couriers
+    description: "This model cleans up courier data"
+    columns:
+      - name: courier_id
+        description: "The primary key"
+        data_tests:
+          - unique
+          - not_null

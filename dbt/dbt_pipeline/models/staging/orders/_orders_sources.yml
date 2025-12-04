@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: orders
+    description: "Data from orders DB"
+    loader: Manual
+    database: iceberg-datalake-raw
+    schema: source_orders
+    tables:
+      - name: restaurants
+      - name: couriers
+      - name: orders

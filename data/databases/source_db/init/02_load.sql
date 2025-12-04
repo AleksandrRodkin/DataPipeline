@@ -8,12 +8,12 @@ FROM '/data/sessions.csv'
 DELIMITER ','
 CSV HEADER;
 
-COPY orders.restaurants (id, name, city, cuisine_type, rating, work_start_time, work_end_time, is_24h)
+COPY orders.restaurants (id, name, city, cuisine_type, rating, work_start_time, work_end_time, is_24h, modified_at)
 FROM '/data/restaurants.csv'
 DELIMITER ','
 CSV HEADER;
 
-COPY orders.couriers (id, name, city, transport, rating)
+COPY orders.couriers (id, name, city, transport, rating, modified_at)
 FROM '/data/couriers.csv'
 DELIMITER ','
 CSV HEADER;

@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_avg_daily_delivery_time
+    description: "Daily average delivery time in seconds"
+
+    columns:
+      - name: order_date
+        description: "The date on which the orders were created"
+        data_tests:
+          - unique
+          - not_null

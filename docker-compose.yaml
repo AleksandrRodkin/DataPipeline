@@ -534,11 +534,14 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
     volumes:
       - ./dbt:/usr/app/dbt
     working_dir: /usr/app/dbt/dbt_pipeline
     command: >
       sh -c "
+        dbt run &&
         dbt docs generate --profiles-dir /usr/app/dbt/dbt_pipeline/profiles &&
         dbt docs serve --host 0.0.0.0 --port 8091 --profiles-dir /usr/app/dbt/dbt_pipeline/profiles
       "

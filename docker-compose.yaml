@@ -60,6 +60,7 @@ x-airflow-common: &airflow-common
     - ./airflow/config:/opt/airflow/config
     - ./airflow/plugins:/opt/airflow/plugins
     - ./airflow/scripts:/opt/airflow/scripts
+    - ./airflow/pipeline_config:/opt/pipeline_config
   user: "${AIRFLOW_UID}:${AIRFLOW_GID}"
   depends_on: &airflow-common-depends-on
     redis:

@@ -82,17 +82,19 @@ if ! /entrypoint airflow connections get 'spark_cluster' >/dev/null 2>&1; then
         --conn-extra '{"spark-binary": "spark-submit", "deploy-mode": "client"}'
 fi
 
+python /opt/airflow/scripts/check_or_create_init_date.py
+
 export PGPASSWORD="${SOURCE_DB_PASSWORD}"
 until psql -h source-db -p 5432 -U "${SOURCE_DB_USER}" -d "${SOURCE_DB}" -c "select 1 from orders.orders limit 1" >/dev/null 2>&1; do
   echo "Waiting for Postgres..."
   sleep 5
 done
 
-if [ ! -f /opt/airflow/scripts/.init_download ]; then
-  echo "Download past data to MinIO..."
-  chmod +x /opt/airflow/scripts/init_download.sh
-  /opt/airflow/scripts/init_download.sh
-  touch /opt/airflow/scripts/.init_download
+if [ ! -f /opt/pipeline_config/.download_flag ]; then
+  echo "Load past data to MinIO..."
+  chmod +x /opt/airflow/scripts/spark_init_download.sh
+  /opt/airflow/scripts/spark_init_download.sh
+  touch /opt/pipeline_config/.download_flag
 else
   echo "Skipping loading of previous data"
 fi

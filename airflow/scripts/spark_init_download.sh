@@ -3,7 +3,7 @@ set -e
 
 WINDOW_END=$(python3 - <<'EOF'
 import yaml
-with open("/opt/pipeline_config.yml") as f:
+with open("/opt/pipeline_config/pipeline_config.yml") as f:
     print(yaml.safe_load(f)["pipeline"]["init_load_date"])
 EOF
 )

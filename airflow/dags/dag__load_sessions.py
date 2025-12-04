@@ -8,7 +8,7 @@ from datetime import timedelta
 from textwrap import dedent
 import yaml
 
-with open("/opt/pipeline_config.yml") as f:
+with open("/opt/pipeline_config/pipeline_config.yml") as f:
     string_date = yaml.safe_load(f)["pipeline"]["init_load_date"]
     start_date = pendulum.parse(string_date).in_timezone("UTC")
 

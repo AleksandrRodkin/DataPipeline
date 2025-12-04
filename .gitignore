@@ -9,7 +9,8 @@
 /data/data_generator/data/**
 /minio_storage/**
 /jupyter-spark/jupyter-spark-workspace/dev/**
-/airflow/scripts/.init_download
+/airflow/pipeline_config/.download_flag
+/airflow/pipeline_config/pipeline_config.yml
 /dbt/logs/**
 /dbt/target/**
 /dbt/dbt_packages/**
